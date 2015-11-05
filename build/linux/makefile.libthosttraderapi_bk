@@ -1,0 +1,71 @@
+########################################################################
+#                                                                      #
+#   Makefile template file                                             #
+#   COMPONENT:   Makefile for atest                                    #
+#   DATE:        2015/01/18                                            #
+#   CREATOR:                                                           #
+#                                                                      #
+########################################################################
+
+PROJECTNAME = thosttraderapi
+PROJ_DIR =  $(ATFROOT)/code/so_simu/ctp_so_simu
+
+PLATFORM = LINUX
+DBGFLAG = -g
+
+CPP  = g++ $(DBGFLAG) -c -Wall -fPIC
+LINK = g++  $(DBGFLAG)
+LINK_SO = g++  $(DBGFLAG) -shared  -fPIC
+	
+CXXFLAGS = 
+ifeq ($(PLATFORM), LINUX)
+	CXXFLAGS += -DLINUX
+endif
+
+####################################################################
+# definition for directory
+
+MAIN_DIR = ..
+OBJ_DIR  = $(ATFROOT)/build/obj
+BIN_DIR  = $(ATFROOT)/build/bin
+SO_DIR   = $(ATFROOT)/code/so_simu/ctp_so_simu
+FRAME_DIR = $(ATFROOT)/code/frame
+INC_DIR  = $(PROJ_DIR)/inc 
+SRC_DIR  = $(PROJ_DIR)/src 
+
+INC_FLAG = -I$(INC_DIR) -I$(FRAME_DIR)/inc 
+LDFLAGS = -L. -latframe
+LIBS = libatframe.a
+
+NORMAL_OBJS = 
+
+SRCS = $(SO_DIR)/src/thosttraderapi.cpp  $(wildcard $(FRAME_DIR)/src/*.cpp $(FRAME_DIR)/src/*.c) 
+#OBJS = $(subst src,obj,$(patsubst %.c,%.o,$(patsubst %.cpp,%.o,$(SRCS)))) 
+#OBJS = $(wildcard *.o)
+TARGET_LIB  = lib$(PROJECTNAME).so
+TARGET_EXE  = 
+
+####################################################################
+
+all:  clean MK_DIR  $(TARGET_LIB) install
+
+MK_DIR:
+	@echo $(PROJ_DIR)
+	@mkdir -p $(OBJ_DIR)	
+
+$(TARGET_LIB): OBJS_STEP
+#	ar cr  $@ *.o   
+	$(LINK_SO) -o $@ *.o  
+	
+OBJS_STEP:
+	$(CPP) $(CXXFLAGS) $(SRCS) $(INC_FLAG) -I$(SRC_DIR)  
+	
+install:
+	cp $(TARGET_LIB) $(ATFROOT)/bin/ 
+
+clean:
+	rm -f $(TARGET_EXE) $(TARGET_LIB)
+	rm -rf *.o
+
+
+

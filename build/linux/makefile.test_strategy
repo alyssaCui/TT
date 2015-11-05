@@ -1,0 +1,62 @@
+########################################################################
+#                                                                      #
+#   Makefile template file                                             #
+#   COMPONENT:   Makefile for strategy.so                              #
+#   DATE:        2015/03/24                                            #
+#   CREATOR:     cuiju                                                 #
+#                                                                      #
+########################################################################
+#-----------------------------------------------------------------------
+# definition for directory
+PROJECTNAME = test_strategy
+PROJ_DIR =  $(ATFROOT)/code/tools
+SRC_DIR  = $(PROJ_DIR)
+INC_DIR  = $(PROJ_DIR)/inc 
+
+MAIN_DIR = ..
+OBJ_DIR  = $(ATFROOT)/build/obj
+BIN_DIR  = $(ATFROOT)/build/bin
+
+SO_DIR = $(ATFROOT)/code/so_simu
+CTP_SO_DIR = $(SO_DIR)/ctp_so_simu
+STRATEGY_SO_DIR = $(SO_DIR)/strategy_so_simu
+FRAME_DIR = $(ATFROOT)/code/frame
+
+#---------------------------------------------------------------------
+PLATFORM = LINUX
+DBGFLAG = -g
+
+CXX = g++
+CXXFLAGS  = $(DBGFLAG) -Wall -fPIC
+
+LINK = g++ $(DBGFLAG)
+LINK_SO = g++ $(DBGFLAG) -shared  -fPIC
+	
+ifeq ($(PLATFORM), LINUX)
+	CXXFLAGS += -DLINUX
+endif
+
+INC_FLAG = -I$(STRATEGY_SO_DIR)/inc -I$(INC_DIR) -I$(FRAME_DIR)/inc -I$(CTP_SO_DIR)/inc 
+LDFLAGS = -L. 
+
+TARGET  = $(PROJECTNAME)
+
+#--------------------------------------------------------------------
+all:  clean MK_DIR  $(TARGET) install
+
+MK_DIR:
+	@echo $(PROJ_DIR)
+	@mkdir -p $(OBJ_DIR)	
+
+$(TARGET):
+		$(CXX) $(CXXFLAGS) -o $@ $(INC_FLAG) $(SRC_DIR)/testStrategySo.cpp -ldl -rdynamic $(LDFLAGS)
+	
+install:
+	cp $(TARGET) $(ATFROOT)/bin/ 
+
+clean:
+	rm -f $(TARGET)
+
+
+
+

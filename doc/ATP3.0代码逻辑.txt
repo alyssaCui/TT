@@ -1,0 +1,300 @@
+【行情】
+1.
+MYQuoteData::MYQuoteData()
+--> MYQuoteData::InitInterface()
+	--> interface_ = new MYCTPDataHandler()
+
+2.
+class MYCTPDataHandler: public CThostFtdcMdSpi	
+MYCTPDataHandler::MYCTPDataHandler()
+-->api_ = CThostFtdcMdApi::CreateFtdcMdApi();
+   api_->RegisterSpi(this);
+   api_->RegisterFront(addr_tmp);
+   api_->Init();  //初始化之后，线程自动启动，并使用上一步中注册的地址向服务端请求建立无身份验证的连接
+   
+3.
+上面连接建立后函数OnFrontConnected 即会被调用。
+如果连接不能建立，或程序运行过程中该连接断开，则函数OnFrontDisconnected 会被调用。
+3.1
+MYCTPDataHandler::OnFrontConnected()
+--> api_->ReqUserLogin(&req_login, 0); //请求登录系统
+3.2
+MYCTPDataHandler::OnFrontDisconnected()
+--> logoned_ = false;
+
+4.
+服务器端成功接收该用户登录请求，而且对期货公司会员号，投资者客户号，投资者登录密码检查无误后，
+通过函数OnRspUserLogin 发送服务端对该登录请求操作作出的响应。
+MYCTPDataHandler::OnRspUserLogin(CThostFtdcRspUserLoginField *pRspUserLogin, CThostFtdcRspInfoField *pRspInfo, int nRequestID,bool bIsLast)
+4.1
+--> pRspInfo->ErrorID = 0
+	--> logoned_ = true;
+        api_->SubscribeMarketData(pp_instruments_, sub_count_);  -->看5.
+4.2
+--> api_->ReqUserLogin(&req_login, 0); //登录失败，不断重试
+
+5.
+客户端订阅行情的请求发出后OnRspSubMarketData被调用
+如果是不合法的，该函数返回服务器端给出的错误信息（pRspInfo）。
+如果是合法的，该函数也会被调用，而返回的信息则是“CTP：No Error”
+MYCTPDataHandler::OnRspSubMarketData(CThostFtdcSpecificInstrumentField *pSpecificInstrument, CThostFtdcRspInfoField *pRspInfo,int nRequestID, bool bIsLast)
+--> 系统代码暂无具体实现
+
+6.
+如果订阅行情的请求是合法的，服务端直接调用OnRtnDepthMarketData返回某合约的市场行情。频率是每秒两次。
+MYCTPDataHandler::OnRtnDepthMarketData(CThostFtdcDepthMarketDataField *p)
+--> MYCTPDataHandler::Convert() //检查取值范围，越界后置零0.0
+--> p_save_->OnQuoteData()   //保存行情
+
+7.
+//退订行情数据
+MYCTPDataHandler::OnRspUnSubMarketData(CThostFtdcSpecificInstrumentField *pSpecificInstrument,CThostFtdcRspInfoField *pRspInfo, int nRequestID, bool bIsLast)
+--> 暂无实现
+
+8.
+//退出登录，先将现有的连接断开
+ReqUserLogout
+--> 暂无实现
+
+9.
+MYCTPDataHandler::OnRspError(CThostFtdcRspInfoField *pRspInfo, int nRequestID, bool bIsLast)
+--> 暂无实现
+
+
+【交易】
+
+1.
+MYTunnel::MYTunnel(const std::string &provider_config_file)
+--> InitInf(*lib_cfg_);
+	--> trade_inf_ = new MyCtpTradeSpi(cfg);
+
+2.
+class MyCtpTradeSpi: public CThostFtdcTraderSpi
+MyCtpTradeSpi::MyCtpTradeSpi()
+--> api_ = CThostFtdcTraderApi::CreateFtdcTraderApi();
+    api_->RegisterSpi(this);    
+    api_->SubscribePrivateTopic(THOST_TERT_QUICK); //公有流：交易所向所有连接着的客户端发布的信息。比如说：合约场上交易状态。
+    api_->SubscribePublicTopic(THOST_TERT_QUICK);  //私有流：交易所向特定客户端发送的信息。如报单回报，成交回报。
+	api_->RegisterFront(addr_tmp);	
+	api_->Init();      //初始化之后，线程自动启动，并使用上一步中注册的地址向服务端请求建立无身份验证的连接
+	
+3.
+在登陆之前，服务端要求对客户端进行身份认证，客户端通过认证之后才能请求登录。
+
+身份认证
+请求进行身份认证使用的函数接口为ReqAuthenticate（请求身份认证）和OnRspAuthenticate（服务端返回的身份认证的响应）。
+--> 暂无实现
+
+登录
+交易接口中请求登录的过程与行情接口一致。
+登录成功之后，响应函数OnRspUserLogin 中的参数pRspUserLogin 中包含了前置编号（FrontID），会话编号（SessionID），最大报单编号（MaxOrderRef）。
+
+目前系统的实现：
+上面连接建立后函数OnFrontConnected 即会被调用。
+如果连接不能建立，或程序运行过程中该连接断开，则函数OnFrontDisconnected 会被调用。
+3.1
+void MyCtpTradeSpi::OnFrontConnected()
+--> CThostFtdcReqUserLoginField login_data;
+    memset(&login_data, 0, sizeof(CThostFtdcReqUserLoginField));
+    strncpy(login_data.BrokerID, cfg_.Logon_config().brokerid.c_str(), sizeof(TThostFtdcBrokerIDType));
+    strncpy(login_data.UserID, cfg_.Logon_config().clientid.c_str(), sizeof(TThostFtdcUserIDType));
+    strncpy(login_data.Password, cfg_.Logon_config().password.c_str(), sizeof(TThostFtdcPasswordType));
+    api_->ReqUserLogin(&login_data, 0);
+3.2
+void MyCtpTradeSpi::OnFrontDisconnected(int nReason)
+--> connected_ = false;
+    update_state("tunnel", -1, "Disconnected");
+
+
+
+4.
+
+void MyCtpTradeSpi::OnRspUserLogin(CThostFtdcRspUserLoginField *pRspUserLogin, CThostFtdcRspInfoField *pRspInfo, int nRequestID,bool bIsLast)
+4.1   
+--> pRspInfo == NULL || pRspInfo->ErrorID == 0 // logon success
+    CThostFtdcSettlementInfoConfirmField req;
+    memset(&req, 0, sizeof(req));
+    strncpy(req.BrokerID, cfg_.Logon_config().brokerid.c_str(), sizeof(TThostFtdcBrokerIDType));
+    strncpy(req.InvestorID, cfg_.Logon_config().clientid.c_str(), sizeof(TThostFtdcInvestorIDType));
+    api_->ReqSettlementInfoConfirm(&req, 0);   //请求确认结算单
+4.2
+--> // 重新登陆
+    boost::thread(boost::bind(&MyCtpTradeSpi::ReqLogin, this));
+    update_state("tunnel", -1, "login failed");
+
+5.
+结算单确认
+为了使投资者及时准确的了解自己的交易状况，如可用资金，持仓，保证金占用等，从而及时了解自己的风险状况，
+综合交易平台要求投资者在每一个交易日进行交易前都必须对前一交易日的结算结果进行确认。
+//确认结算单响应
+void MyCtpTradeSpi::OnRspSettlementInfoConfirm(CThostFtdcSettlementInfoConfirmField *pSettlementInfoConfirm,CThostFtdcRspInfoField *pRspInfo, int nRequestID, bool bIsLast)
+--> 仅打印，无别的业务逻辑
+
+//请求查询结算单及响应
+系统没有调用ReqQrySettlementInfo
+void MyCtpTradeSpi::OnRspQrySettlementInfo(CThostFtdcSettlementInfoField *pSettlementInfo, CThostFtdcRspInfoField *pRspInfo,int nRequestID, bool bIsLast)
+--> 仅打印，无别的业务逻辑
+
+//查询结算单确认的日期
+系统没有调用ReqQrySettlementInfoConfirm
+void MyCtpTradeSpi::OnRspQrySettlementInfoConfirm(CThostFtdcSettlementInfoConfirmField *pSettlementInfoConfirm,CThostFtdcRspInfoField *pRspInfo, int nRequestID, bool bIsLast)
+--> 仅打印，无别的业务逻辑
+
+6.
+请求报单  ReqOrderInsert
+void MYTunnel::PlaceOrder(const T_PlaceOrder *pPlaceOrder)
+-->CThostFtdcInputOrderField counter_req;
+   CTPPacker::OrderRequest(*lib_cfg_, pPlaceOrder, order_ref, counter_req);
+   process_result = p_tunnel->ReqOrderInsert(&counter_req, request_id);
+   --> api_->ReqOrderInsert(pInputOrder, nRequestID);
+
+7.
+OnRspOrderInsert
+综合交易平台交易核心返回的包含错误信息的报单响应 
+void MyCtpTradeSpi::OnRspOrderInsert(CThostFtdcInputOrderField *pInputOrder, CThostFtdcRspInfoField *pRspInfo, int nRequestID,bool bIsLast)
+
+8.
+OnRtnOrder
+交易系统返回的报单状态，每次报单状态发生变化时被调用。一次报单过程中会被调用数次：交易系统将报单向交易所提交时，交易所撤销或接受该报单时，该报单成交时。
+void MyCtpTradeSpi::OnRtnOrder(CThostFtdcOrderField *pOrder)
+
+9.
+OnErrRtnOrderInsert
+报盘将通过交易核心检查的报单发送到交易所前置，交易所会再次校验该报单。如果交易所认为该报单不合
+法，交易所会将该报单撤销，将错误信息返回给报盘，并返回更新后的该报单的状态。当客户端接收到该错
+误信息后，就会调用OnErrRtnOrderInsert 函数， 而更新后的报单状态会通过调用函数OnRtnOrder 发送到客
+户端。如果交易所认为该报单合法，则只返回该报单状态（此时的状态应为：“尚未触发”）。
+void MyCtpTradeSpi::OnErrRtnOrderInsert(CThostFtdcInputOrderField *pInputOrder, CThostFtdcRspInfoField *pRspInfo)
+
+10.
+OnRtnTrade
+如果该报单由交易所进行了撮合成交，交易所再次返回该报单的状态（已成交）。并通过此函数返回该笔成交。
+void MyCtpTradeSpi::OnRtnTrade(CThostFtdcTradeField *pTrade)
+
+11.
+撤单
+撤单使用的函数是ReqOrderAction。
+void MyCtpTradeSpi::CancelUnterminatedOrders()
+--> CThostFtdcInputOrderActionField action_field = CreatCancelParam(order_field);
+    api_->ReqOrderAction(&action_field, 0);
+
+撤单响应和回报
+OnRspOrderAction：撤单响应。交易核心返回的含有错误信息的撤单响应。
+
+OnRtnOrder：交易核心确认了撤单指令的合法性后，将该撤单指令提交给交易所，同时返回对应报单的新状态。
+
+OnErrRtnOrderAction：交易所会再次验证撤单指令的合法性，如果交易所认为该指令不合法，交易核心通过
+此函数转发交易所给出的错误。如果交易所认为该指令合法，同样会返回对应报单的新状态（OnRtnOrder）。
+
+
+
+12.
+通过ReqUserLogout 登出系统的话，会先将现有的连接断开，再重新建立一个新的连接，重新登录后SessionID 会重置，因此MaxOrderRef 一般也会重新从0 计数。
+void MyCtpTradeSpi::OnRspUserLogout(CThostFtdcUserLogoutField *pUserLogout, CThostFtdcRspInfoField *pRspInfo, int nRequestID,bool bIsLast)
+--> logoned_ = false;
+    update_state("tunnel", -1, "logout");
+
+
+
+
+报单结构体
+			StatusMsg=报单已提交        StatusMsg=未成交            StatusMsg=未成交            StatusMsg=已撤单            StatusMsg=未成交            StatusMsg=全部成交
+			OrderRef=10000019                                                                                               OrderRef=10000013
+			VolumeTotalOriginal=1                
+			VolumeTraded=0                                                                                                                               VolumeTraded=1                      
+			VolumeTotal=1                                                                                                                                VolumeTotal=0                       
+			RequestID=0       
+			OrderLocalID=3058                                                                                               OrderLocalID=3058    
+			OrderSubmitStatus=0         OrderSubmitStatus=3                                     OrderSubmitStatus=5                                      OrderSubmitStatus=3
+			NotifySequence=0            
+			SequenceNo=6034             SequenceNo=6034             SequenceNo=6035                                         SequenceNo=5994
+			OrderStatus=a               OrderStatus=3                                           OrderStatus=5               OrderStatus=3                OrderStatus=0
+			OrderSysID=                 OrderSysID=781259                                                                   OrderSysID=781031
+	                                                            ActiveUserID=41003991                                   ActiveUserID=
+
+
+报单
+		ReqOrderInsert 报单请求
+		OnRspOrderInsert - 柜台拒绝 （如字段填写错误，资金不足，仓位不足）
+		OnRtnOrder - 柜台回报 （没有委托号）
+		OnErrRtnOrderInsert - 交易所拒绝 （一般会同时回报 OnRspOrderInsert）
+		OnRtnOrder - 交易所回报 （有委托号）                                                   //委托号为交易所生成的OrderSysID
+		OnRtnOrder  OnRtnTrade （如果有成交，会依次回 OnRtnOrder、OnRtnTrade）
+		
+	撤单
+		ReqOrderAction
+		OnRspOrderAction - 柜台拒绝 （如已撤，柜台找不到该报单）
+		OnRtnOrder - 回报当前报单的状态，撤单后 ActiveUserID 将不再为空字符串                 //通道模块通过ActiveUserID是否大于0来来判断撤单是否提交成功
+		OnErrRtnOrderAction - 交易所拒绝 （一般会同时回报 OnRspOrderAction）
+		OnRtnOrder - 已撤状态
+
+
+
+typedef char TThostFtdcBrokerFunctionCodeType;
+
+/////////////////////////////////////////////////////////////////////////
+///TFtdcOrderActionStatusType是一个报单操作状态类型
+/////////////////////////////////////////////////////////////////////////
+///已经提交
+#define THOST_FTDC_OAS_Submitted 'a'
+///已经接受
+#define THOST_FTDC_OAS_Accepted 'b'
+///已经被拒绝
+#define THOST_FTDC_OAS_Rejected 'c'
+
+typedef char TThostFtdcOrderActionStatusType;
+
+/////////////////////////////////////////////////////////////////////////
+///TFtdcOrderStatusType是一个报单状态类型
+/////////////////////////////////////////////////////////////////////////
+///全部成交
+#define THOST_FTDC_OST_AllTraded '0'
+///部分成交还在队列中
+#define THOST_FTDC_OST_PartTradedQueueing '1'
+///部分成交不在队列中
+#define THOST_FTDC_OST_PartTradedNotQueueing '2'
+///未成交还在队列中
+#define THOST_FTDC_OST_NoTradeQueueing '3'
+///未成交不在队列中
+#define THOST_FTDC_OST_NoTradeNotQueueing '4'
+///撤单
+#define THOST_FTDC_OST_Canceled '5'
+///未知
+#define THOST_FTDC_OST_Unknown 'a'
+///尚未触发
+#define THOST_FTDC_OST_NotTouched 'b'
+///已触发
+#define THOST_FTDC_OST_Touched 'c'
+
+typedef char TThostFtdcOrderStatusType;
+
+/////////////////////////////////////////////////////////////////////////
+///TFtdcOrderSubmitStatusType是一个报单提交状态类型
+/////////////////////////////////////////////////////////////////////////
+///已经提交
+#define THOST_FTDC_OSS_InsertSubmitted '0'
+///撤单已经提交
+#define THOST_FTDC_OSS_CancelSubmitted '1'
+///修改已经提交
+#define THOST_FTDC_OSS_ModifySubmitted '2'
+///已经接受
+#define THOST_FTDC_OSS_Accepted '3'
+///报单已经被拒绝
+#define THOST_FTDC_OSS_InsertRejected '4'
+///撤单已经被拒绝
+#define THOST_FTDC_OSS_CancelRejected '5'
+///改单已经被拒绝
+#define THOST_FTDC_OSS_ModifyRejected '6'
+
+typedef char TThostFtdcOrderSubmitStatusType;
+
+
+
+
+
+
+
+
+
+
+

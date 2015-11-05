@@ -1,0 +1,38 @@
+# trader config for 3.0.0.518
+version=3.0.0.518
+
+log {
+	home=/home/mycapitaltrade/log
+	level=INFO
+	split=no
+}
+
+quote gta_udp {
+	file=/home/mycapitaltrade/libmy_quote_gta_ex_lib.so
+	config=/home/mycapitaltrade/my_quote_gta_udp.config
+}
+
+tunnel femas {
+	file=/home/mycapitaltrade/libmy_tunnel.so
+	config=/home/mycapitaltrade/my_trade_tunnel_femas_test.xml
+}
+
+strategy hi213fdv30 {
+	file=/home/mycapitaltrade/strategy/hi213fdv30.so
+	file_type="f"
+	type="future"
+
+	max_pos=100
+	cancel_limit_per_day=400
+	order_limit_per_second=50
+
+	symbol IF1508 {
+		quote="gta_udp"
+		tunnel="femas"
+		
+		max_pos = 100
+		cancel_limit_per_day=400
+		order_limit_per_second=50
+	}
+}
+

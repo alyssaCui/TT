@@ -1,0 +1,63 @@
+########################################################################
+#                                                                      #
+#   Makefile template file                                             #
+#   COMPONENT:   Makefile for USTPmduserapi                            #
+#   DATE:        2015/01/18                                            #
+#   CREATOR:                                                           #
+#                                                                      #
+########################################################################
+PLATFORM = LINUX
+DBGFLAG = -g
+
+CPP  = g++ $(DBGFLAG) -c -Wall -fPIC
+LINK = g++ $(DBGFLAG)
+LINK_SO = g++  $(DBGFLAG) -shared  -fPIC
+	
+CXXFLAGS = 
+ifeq ($(PLATFORM), LINUX)
+	CXXFLAGS += -DLINUX
+endif
+
+####################################################################
+# definition for directory
+PROJECTNAME = USTPmduserapi
+MAIN_DIR = $(TTROOT)
+PROJ_DIR =  $(MAIN_DIR)/code/so_simu/ctp_so_simu
+FRAME_DIR = $(MAIN_DIR)/code/frame
+APPS_DIR = $(MAIN_DIR)/code/apps
+SO_DIR   = $(MAIN_DIR)/code/so_simu/ctp_so_simu
+
+INC_FLAG = -I$(PROJ_DIR)/inc -I$(FRAME_DIR)/inc -I$(APPS_DIR)/inc 
+LDFLAGS = -L. 
+
+OBJ_DIR  = $(MAIN_DIR)/build/obj
+BIN_DIR  = $(MAIN_DIR)/bin
+
+SRCS = $(SO_DIR)/src/USTPmduserapi.cpp  $(wildcard $(FRAME_DIR)/src/*.cpp $(FRAME_DIR)/src/*.c) 
+
+TARGET_LIB  = lib$(PROJECTNAME)_lnx64.so
+TARGET_EXE  = 
+
+####################################################################
+
+all:  clean MK_DIR  $(TARGET_LIB) install
+
+MK_DIR:
+	@echo $(PROJ_DIR)
+	@mkdir -p $(OBJ_DIR)	
+
+$(TARGET_LIB): OBJS_STEP
+	$(LINK_SO) -o $@ *.o  
+	
+OBJS_STEP:
+	$(CPP) $(CXXFLAGS) $(SRCS) $(INC_FLAG) 
+	
+install:
+	cp $(TARGET_LIB) $(MAIN_DIR)/bin/ 
+
+clean:
+	rm -f $(TARGET_EXE) $(TARGET_LIB)
+	rm -rf *.o
+
+
+

@@ -1,0 +1,87 @@
+########################################################################
+#                                                                      #
+#   Makefile template file                                             #
+#   COMPONENT:   Makefile for func_test_strategy_simu.so                              #
+#   DATE:        2015/03/24                                            #
+#   CREATOR:     cuiju                                                 #
+#                                                                      #
+########################################################################
+####################################################################
+# definition for directory
+PROJECTNAME = func_test_strategy_simu
+PROJ_DIR =  $(ATFROOT)/code/so_simu/strategy_so_simu
+SRC_DIR  = $(PROJ_DIR)/src
+INC_DIR  = $(PROJ_DIR)/inc 
+
+MAIN_DIR = ..
+OBJ_DIR  = $(ATFROOT)/build/obj
+BIN_DIR  = $(ATFROOT)/build/bin
+
+SO_DIR = $(ATFROOT)/code/so_simu
+CTP_SO_DIR = $(SO_DIR)/ctp_so_simu
+FRAME_DIR = $(ATFROOT)/code/frame
+GTEST_DIR = /home/cuiju/gtest
+
+####################################################################
+PLATFORM = LINUX
+DBGFLAG = -g
+
+CXX = g++
+CXXFLAGS  = $(DBGFLAG) -Wall -fPIC -c 
+
+LINK = g++ $(DBGFLAG)
+LINK_SO = g++ $(DBGFLAG) -shared  -fPIC
+	
+ifeq ($(PLATFORM), LINUX)
+	CXXFLAGS += -DLINUX
+endif
+
+# Flags passed to the preprocessor.
+# Set Google Test's header directory as a system directory, such that
+# the compiler doesn't generate warnings in Google Test headers.
+CPPFLAGS += -isystem $(GTEST_DIR)/include
+
+INC_FLAG = -I$(INC_DIR) -I$(FRAME_DIR)/inc -I$(CTP_SO_DIR)/inc 
+LDFLAGS = -L. -lpthread -L$(GTEST_DIR) -lgtest 
+
+#SRCS = $(wildcard $(SRC_DIR)/*.cpp) 
+
+TARGET_LIB  = lib$(PROJECTNAME).so
+TARGET_EXE  = 
+
+
+####################################################################
+
+all:  clean MK_DIR  $(TARGET_LIB) install
+
+MK_DIR:
+	@echo $(PROJ_DIR)
+	@mkdir -p $(OBJ_DIR)	
+
+$(TARGET_LIB): strategy_so.o checker.o testStrategyAPI.o common.o
+	$(LINK_SO) -o $@ $^ $(GTEST_DIR)/libgtest.a -lpthread 
+	
+strategy_so.o: 
+	$(CXX) $(CXXFLAGS) $(SRC_DIR)/strategy_so.cpp $(CPPFLAGS) $(INC_FLAG)  
+
+checker.o:
+	$(CXX) $(CXXFLAGS) $(SRC_DIR)/checker.cpp $(INC_FLAG)   
+
+testStrategyAPI.o:
+	$(CXX) $(CXXFLAGS) $(SRC_DIR)/testStrategyAPI.cpp $(CPPFLAGS) $(INC_FLAG)  
+	
+#frame.o: 
+#	$(CXX) $(DBGFLAG) -Wall -fPIC -o $@ $(wildcard $(FRAME_DIR)/src/*.cpp) $(INC_FLAG)
+	
+common.o:
+	$(CXX) $(CXXFLAGS) $(FRAME_DIR)/src/common.cpp $(INC_FLAG) 
+	
+install:
+	cp $(TARGET_LIB) $(ATFROOT)/bin/ 
+
+clean:
+	rm -f $(TARGET_EXE) $(TARGET_LIB)
+	rm -rf *.o
+
+
+

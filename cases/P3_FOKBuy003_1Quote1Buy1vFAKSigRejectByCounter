@@ -1,0 +1,25 @@
+QuoteSvr.Config.SetProviderNum("1");
+QuoteSvr.Provider0.WaitConnectFromClient();
+QuoteSvr.Provider0.SendResultForConnect("SUCC");  # "SUCC" or "FAIL" or NULL
+
+QuoteSvr.Provider0.WaitLoginFromClient("account=test|password=xxxxx");
+QuoteSvr.Provider0.SendResultForLogin("SUCC");    # "SUCC" or "FAIL" or NULL
+
+QuoteSvr.Provider0.WaitSubscribeQuoteFromClient("IF1504");
+QuoteSvr.Provider0.SendRspForSubscribe("file=/home/cuiju/tt/data/one_quote.dat|interval=500000");
+
+QuoteSvr.Provider0.Sleep(1);  #unit: microsecond
+QuoteSvr.Provider0.WaitResultOfSendQuote();  
+QuoteSvr.Provider0.DisconnectClient();
+
+Exchange.Config.SetClientNum("1");
+Exchange.Client0.WaitConnectFromClient();
+Exchange.Client0.SendResultForConnect("SUCC");
+
+Exchange.Client0.WaitLoginFromClient("account=test|password=xxxxx");
+Exchange.Client0.SendResultForLogin("SUCC");
+
+Exchange.Client0.WaitReqOrderInsert("orderID=0|instr=FOK|direction=buy|vol=1|price=3838|CombOffsetFlag=Open");
+Exchange.Client0.SendOnRspOrderInsert("orderID=0");
+
+Exchange.Client0.DisconnectClient();

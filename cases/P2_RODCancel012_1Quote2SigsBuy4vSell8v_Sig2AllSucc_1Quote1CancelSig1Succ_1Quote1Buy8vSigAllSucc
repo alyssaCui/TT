@@ -1,0 +1,43 @@
+QuoteSvr.Config.SetProviderNum("1");
+QuoteSvr.Provider0.WaitConnectFromClient();
+QuoteSvr.Provider0.SendResultForConnect("SUCC");  # "SUCC" or "FAIL" or NULL
+
+QuoteSvr.Provider0.WaitLoginFromClient("account=test|password=xxxxx");
+QuoteSvr.Provider0.SendResultForLogin("SUCC");    # "SUCC" or "FAIL" or NULL
+
+QuoteSvr.Provider0.WaitSubscribeQuoteFromClient("IF1504");
+QuoteSvr.Provider0.SendRspForSubscribe("file=/home/cuiju/att/data/three_quote.dat|interval=500000");
+
+QuoteSvr.Provider0.Sleep(1);  #unit: microsecond
+QuoteSvr.Provider0.WaitResultOfSendQuote();  
+QuoteSvr.Provider0.DisconnectClient();
+
+Exchange.Config.SetClientNum("1");
+Exchange.Client0.WaitConnectFromClient();
+Exchange.Client0.SendResultForConnect("SUCC");
+
+Exchange.Client0.WaitLoginFromClient("account=test|password=xxxxx");
+Exchange.Client0.SendResultForLogin("SUCC");
+
+Exchange.Client0.WaitReqOrderInsert("orderID=0|instr=ROD|direction=buy|vol=4|price=3838|CombOffsetFlag=Open");
+Exchange.Client0.WaitReqOrderInsert("orderID=1|instr=ROD|direction=sell|vol=8|price=3838|CombOffsetFlag=Open");
+
+Exchange.Client0.SendOnRtnOrder("orderID=0|SubmitStatus=InsertSubmitted|OrderStatus=Unknown|VolumeTraded=0|VolumeTotal=4");
+Exchange.Client0.SendOnRtnOrder("orderID=1|SubmitStatus=InsertSubmitted|OrderStatus=Unknown|VolumeTraded=0|VolumeTotal=8");
+Exchange.Client0.SendOnRtnOrder("orderID=0|SubmitStatus=Accepted|OrderStatus=NoTradeQueueing|VolumeTraded=0|VolumeTotal=4");
+Exchange.Client0.SendOnRtnOrder("orderID=1|SubmitStatus=Accepted|OrderStatus=NoTradeQueueing|VolumeTraded=0|VolumeTotal=8");
+
+Exchange.Client0.SendOnRtnOrder("orderID=1|SubmitStatus=Accepted|OrderStatus=AllTraded|VolumeTraded=8|VolumeTotal=0");
+Exchange.Client0.SendOnRtnTrade("orderID=1|vol=8|price=3838");
+
+Exchange.Client0.WaitReqOrderAction("cancelID=0|orderID=0");
+Exchange.Client0.SendOnRtnOrder("orderID=0|SubmitStatus=Accepted|OrderStatus=NoTradeQueueing|VolumeTraded=0|VolumeTotal=4");
+Exchange.Client0.SendOnRtnOrder("orderID=0|SubmitStatus=Accepted|OrderStatus=Canceled|VolumeTraded=0|VolumeTotal=4");
+
+Exchange.Client0.WaitReqOrderInsert("orderID=2|instr=ROD|direction=buy|vol=8|price=3840|CombOffsetFlag=CloseToday");
+Exchange.Client0.SendOnRtnOrder("orderID=2|SubmitStatus=InsertSubmitted|OrderStatus=Unknown|VolumeTraded=0|VolumeTotal=8");
+Exchange.Client0.SendOnRtnOrder("orderID=2|SubmitStatus=Accepted|OrderStatus=NoTradeQueueing|VolumeTraded=0|VolumeTotal=8");
+Exchange.Client0.SendOnRtnOrder("orderID=2|SubmitStatus=Accepted|OrderStatus=AllTraded|VolumeTraded=8|VolumeTotal=0");
+Exchange.Client0.SendOnRtnTrade("orderID=2|vol=8|price=3840");
+
+Exchange.Client0.DisconnectClient();

@@ -1,0 +1,193 @@
+测试用例每一句由对象、操作、测试数据（测试输入的数据，测试结果验证的数据）组成。
+目前有两类对象：
+	1）QuoteSvr 行情数据服务器功能模拟
+	2）Exchange 柜台和交易所功能模拟
+
+为了支持8个行情数据源的测试，在QuoteSvr下又有一个子对象Provider，模拟行情提供商
+目前支持8个行情提供商，分别是Provider0、Provider1、Provider2、Provider3、Provider4、Provider5、Provider6、Provider7
+
+为了支持8个通道的测试，在Exchange下又有一个子对象Client，用于支持多个通道同时连接
+目前支持8个通道同时连接，分别是Client0、Client1、Client2、Client3、Client4、Client5、Client6、Client7
+
+注意：为了简化解析，请不要在字段及其取值左右添加额外的白字符（空格、TAB等）！！
+
+######################################################################
+*********************QuoteSvr对象目前支持的操作***********************
+######################################################################
+# 通过Config.SetProviderNum()设置行情数据服务商的个数
+	例子：QuoteSvr.Config.SetProviderNum("1"); 设置有1个行情数据服务商，即Provider0
+		
+		
+# WaitConnectFromClient() 等待客户端的连接请求
+	此操作没有需要验证的数据
+	例子：QuoteSvr.Provider0.WaitConnectFromClient();
+
+	
+# SendResultForConnect() 回复连接请求
+	此操作需要填入"SUCC" or "FAIL"数据
+	*SUCC 回复连接成功
+	*FAIL 回复连接失败
+	例子：QuoteSvr.Provider0.SendResultForConnect("SUCC");
+	
+	
+# WaitLoginFromClient() 等待客户端登录
+	此操作括号内需要输入帐号和密码两种验证数据
+	*account 登录帐号，用于校验登录请求中的帐号
+	*password 密码，用于交易登录请求中的密码
+	例子：QuoteSvr.Provider0.WaitLoginFromClient("account=test|password=xxxxx");
+ 
+
+# SendResultForLogin() 回复登录结果
+	此操作需要填入"SUCC" or "FAIL"数据
+	*SUCC 回复连接成功
+	*FAIL 回复连接失败
+	例子：QuoteSvr.Provider0.SendResultForLogin("SUCC");   
+
+# WaitSubscribeQuoteFromClient() 等待客户端订阅合约
+	需要填入待验证的合约
+	如果需要订阅多个合约，重复该操作多次
+	例子：QuoteSvr.Provider0.WaitSubscribeQuoteFromClient("IF1504");
+	
+
+# SendRspForSubscribe()  回复订阅结果
+	如果设置订阅行情成功，值填写行情文件的名字和行情发送间隔(unit: usec)；
+	如果设置行情订阅失败，值填写“FAIL”
+	例子：QuoteSvr.Provider0.SendRspForSubscribe("file=/home/cuiju/att/data/four_quote.dat|interval=500000");
+
+	
+# WaitResultOfSendQuote() 等待客户端告知行情发送完毕
+	此操作无需验证数据
+	例子：QuoteSvr.Provider0.WaitResultOfSendQuote();  
+
+# DisconnectClient() 断开与客户端的连接	
+	此操作无需输入数据
+	例子：QuoteSvr.Provider0.DisconnectClient();		
+
+# Sleep(n) 让流程暂停n秒
+	例子：QuoteSvr.Provider0.Sleep(1);  #unit: microsecond
+
+
+######################################################################
+*********************Exchange对象目前支持的操作***********************
+######################################################################
+# 通过Config.SetClientNum() 设置预计连接的通道的个数
+	例子：Exchange.Config.SetClientNum("1"); 设置支持1个通道连接，即Client0
+		
+		
+# WaitConnectFromClient() 等待客户端的连接请求
+	此操作没有需要验证的数据
+	例子：Exchange.Client0.WaitConnectFromClient();
+
+	
+# SendResultForConnect() 回复连接请求
+	此操作需要填入"SUCC" or "FAIL"数据
+	*SUCC 回复连接成功
+	*FAIL 回复连接失败
+	例子：Exchange.Client0.SendResultForConnect("SUCC");
+	
+	
+# WaitLoginFromClient() 等待客户端登录
+	此操作括号内需要输入帐号和密码两种验证数据
+	*account 登录帐号，用于校验登录请求中的帐号
+	*password 密码，用于交易登录请求中的密码
+	例子：Exchange.Client0.WaitLoginFromClient("account=test|password=xxxxx");
+ 
+
+# SendResultForLogin() 回复登录结果
+	此操作需要填入"SUCC" or "FAIL"数据
+	*SUCC 回复连接成功
+	*FAIL 回复连接失败
+	例子：Exchange.Client0.SendResultForLogin("SUCC");   
+
+
+# WaitReqOrderInsert() 等待报单
+	*orderID 报单的ID,用于后续操作指定要处理的报单（orderID从0开始计数）
+	*instr 报单类型，取值为ROD(当日有效单)、FAK、FOK、MRK(市价单)
+	*direction 买卖方向，取值为"buy"、"sell"
+	*vol 数量
+	*price 价格
+	*CombOffsetFlag 开平仓标志，取值为 "Open"、"Close"、"CloseToday"、"CloseYesterday"
+	
+	例子：Exchange.Client0.WaitOrder("instr=ROD|vol=1|price=1|CombOffsetFlag=Open");
+	注意：为了简化解析，请不要添加额外的白字符（空格、TAB等）
+	
+	
+# SendOnRtnOrder 回复报单回报
+	*orderID 报单的ID,用于后续操作指定要处理的报单
+	*SubmitStatus 报单提交状态,可能的取值如下：
+		InsertSubmitted   ///已经提交
+		CancelSubmitted   ///撤单已经提交
+		Accepted          ///已经接受
+		InsertRejected    ///报单已经被拒绝
+		CancelRejected    ///撤单已经被拒绝
+	*OrderStatus 报单状态，可能的取值如下：
+		AllTraded               ///全部成交
+		PartTradedQueueing      ///部分成交还在队列中
+		PartTradedNotQueueing   ///部分成交不在队列中
+		NoTradeQueueing         ///未成交还在队列中
+		NoTradeNotQueueing      ///未成交不在队列中
+		Canceled                ///撤单
+		Unknown                 ///未知
+		NotTouched              ///尚未触发
+		Touched                 ///已触发
+		
+	例子：Exchange.Client0.SendOnRtnOrder("orderID=1|SubmitStatus=InsertSubmitted|OrderStatus=Unknown");
+	
+# SendOnRtnTrade 回复“交易回报”
+	*orderID 报单的ID,用于后续操作指定要处理的报单
+	*vol   成交数量
+	*price 成交价格
+	
+	例子：Exchange.Client0.SendOnRtnTrade("orderID=1|vol=1|price=3839");
+
+	
+# SendOnRspOrderInsert 柜台返回的包含错误信息的报单响应
+	*orderID 报单的ID,用于后续操作指定要处理的报单
+	*errorID 错误信息ID,此字段可不写，缺省为15（综合交易平台：报单字段有误）
+
+	
+	例子：Exchange.Client0.SendOnRspOrderInsert("orderID=1");
+	
+	
+# SendOnErrRtnOrderInsert 交易所认为报单不合法时返回的消息
+	*orderID 报单的ID,用于后续操作指定要处理的报单
+	*errorID 错误信息ID,此字段可不写，缺省为17（综合交易平台：合约不能交易）
+	
+	例子：Exchange.Client0.SendOnErrRtnOrderInsert("orderID=1");
+	
+	
+# WaitReqOrderAction() 等待撤单
+	*orderID 报单的ID,用于后续操作指定要处理的报单
+    *cancelID 撤单的ID,用于后续操作指定要处理的撤单（cancelID从0开始计数）
+	
+	例子：Exchange.Client0.WaitReqOrderAction("cancelID=0|orderID=0");
+
+
+# SendOnRspOrderAction 撤单响应。柜台返回的含有错误信息的撤单响应
+   *cancelID 撤单的ID,用于后续操作指定要处理的撤单
+   *errorID 错误信息ID,此字段可不写，缺省为23（综合交易平台：错误的报单操作字段） 
+   
+	例子：Exchange.Client0.SendOnRspOrderAction("cancelID=0");
+
+
+# SendOnErrRtnOrderAction 交易所认为撤单指令的不合法
+   *cancelID 撤单的ID,用于后续操作指定要处理的撤单
+  *errorID 错误信息ID,此字段可不写，缺省为26（综合交易平台：报单已全成交或已撤销，不能再撤） 
+  
+	例子：Exchange.Client0.SendOnErrRtnOrderAction("cancelID=0");
+	
+	
+######################################################################
+*****************************其            他*************************
+######################################################################	
+循环控制：
+REPEAT(repeat_num){
+	statement1;
+	statement2;
+	……
+}
+
+repeat_num:重复次数
+注意：1）repeat_num要有()括起来，且与REPEAT同行
+      2）为了简化用例解析，REPEAT与 "{" 放在同一行，"}"单独一行
+      3) REPEAT语句块中，一行一条语句

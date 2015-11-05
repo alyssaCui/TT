@@ -1,0 +1,69 @@
+########################################################################
+#                                                                      #
+#   Makefile template file                                             #
+#   COMPONENT:   Makefile for atf                                      #
+#   DATE:        2015/01/18                                            #
+#   CREATOR:                                                           #
+#                                                                      #
+########################################################################
+
+PROJECTNAME = trader
+PROJ_DIR =  $(ATFROOT)/code/tools/trader_simu
+
+PLATFORM = LINUX
+DBGFLAG = -g
+
+CPP  = g++ $(DBGFLAG) -c    
+LINK = g++  $(DBGFLAG)
+LINK_SO = g++  $(DBGFLAG) -shared  -fPIC
+
+CXXFLAGS = 
+ifeq ($(PLATFORM), LINUX)
+	CXXFLAGS += -DLINUX
+endif
+
+####################################################################
+# definition for directory
+
+MAIN_DIR = ..
+OBJ_DIR  = $(ATFROOT)/build/obj
+BIN_DIR  = $(ATFROOT)/build/bin
+SO_DIR   = $(ATFROOT)/code/so_simu/ctp_so_simu
+FRAME_DIR = $(ATFROOT)/code/frame
+INC_DIR  = $(PROJ_DIR)/inc 
+SRC_DIR  = $(PROJ_DIR)/src 
+
+INC_FLAG = -I$(INC_DIR) -I$(SO_DIR)/inc -I$(FRAME_DIR)/inc
+LDFLAGS = -L. -lpthread  -lthosttraderapi -lthostmduserapi
+
+
+NORMAL_OBJS = 
+
+SRCS = $(wildcard $(PROJ_DIR)/src/*.cpp $(PROJ_DIR)/src/*.c)  
+#OBJS = $(subst src,obj,$(patsubst %.c,%.o,$(patsubst %.cpp,%.o,$(SRCS)))) 
+#OBJS = $(wildcard *.o)
+TARGET_LIB  = 
+TARGET_EXE	= $(PROJECTNAME)
+
+####################################################################
+
+all:  clean MK_DIR  $(TARGET_EXE) install
+
+MK_DIR:
+	@echo $(PROJ_DIR)
+	@mkdir -p $(OBJ_DIR)
+
+$(TARGET_EXE): OBJS_STEP
+	$(LINK) -o $@ *.o  $(LDFLAGS)
+
+OBJS_STEP:
+	$(CPP) $(CXXFLAGS) $(SRCS) $(INC_FLAG)
+	
+install:
+	mv $(TARGET_EXE) $(ATFROOT)/bin/ 
+
+clean:
+	rm -f $(TARGET_EXE) $(TARGET_LIB)
+	rm -f *.o
+
+
